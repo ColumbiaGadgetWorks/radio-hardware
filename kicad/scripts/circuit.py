@@ -3,8 +3,8 @@
 gen_schematic.py turns this into the .kicad_sch, gen_pcb.py into the board,
 and the BOM/CPL come from the same table, so they cannot drift apart.
 
-Station: KOPN 89.5 MHz. To retune for another station change R_TUNE_H and
-R_TUNE_L (see station.py) and the silkscreen text.
+Station: KOPN 89.5 MHz, set by R2/R3 (see the station divider note below) and
+the silkscreen text.
 """
 from schlib import SymDef
 
@@ -82,10 +82,11 @@ part('R1', 'R', '100k', R0603, 'C25803', '0603WAF1003T5E', {'1': '+3V3', '2': 'R
 part('C5', 'C', '100nF', C0603, 'C14663', 'CC0603KRX7R9BB104', {'1': 'RST', '2': 'GND'}, block=B)
 part('U5', 'XC61CN', 'XC61CN2702MR', SOT23, 'C112139', 'XC61CN2702MR-G', {'3': '+3V3', '2': 'GND', '1': 'RST'}, block=B, dnp=True)   # upgrade: brown-out reset
 # station divider: TUNE1 -> R2 -> TUNE2 -> R3 -> TUNE_LO -> R4 -> GND
-# ratio (R3+R4)/(R2+R3+R4) = 11.1/93.1 -> 89.504 MHz on the assumed 87 + 21*ratio law;
-# 1% parts: worst case +/-44 kHz, inside the +/-50 kHz channel window
-part('R2', 'R', '82k', R0603, 'C23254', '0603WAF8202T5E', {'1': 'TUNE1', '2': 'TUNE2'}, block=B, station=True)
-part('R3', 'R', '11k', R0603, 'C25950', '0603WAF1102T5E', {'1': 'TUNE2', '2': 'TUNE_LO'}, block=B, station=True)
+# ratio (R3+R4)/(R2+R3+R4) = 10.1/61.1 = 0.165. Measured on rev B (2026-11): KOPN plays
+# for ratios 0.150-0.176, so 0.165 sits mid-window. The old 87 + 21*ratio law was wrong
+# (it gave 82k/11k = 0.119 -> static). Both parts are Basic, 1%.
+part('R2', 'R', '51k', R0603, 'C23196', '0603WAF5102T5E', {'1': 'TUNE1', '2': 'TUNE2'}, block=B, station=True)
+part('R3', 'R', '10k', R0603, 'C25804', '0603WAF1002T5E', {'1': 'TUNE2', '2': 'TUNE_LO'}, block=B, station=True)
 part('R4', 'R', '100R', R0603, 'C22775', '0603WAF1000T5E', {'1': 'TUNE_LO', '2': 'GND'}, block=B)
 part('C6', 'C', '100nF', C0603, 'C14663', 'CC0603KRX7R9BB104', {'1': 'TUNE1', '2': 'GND'}, block=B)
 part('C7', 'C', '22uF', C0603, 'C59461', 'CL10A226MQ8NRNC', {'1': 'TUNE1', '2': 'GND'}, block=B)
@@ -98,7 +99,7 @@ part('R17', 'R', '100k', R0603, 'C25803', '0603WAF1003T5E', {'1': 'BAND_M', '2':
 part('R6', 'R', '68k', R0603, 'C23231', '0603WAF6802T5E', {'1': 'BAND', '2': 'GND'}, block=B)
 part('C8', 'C', '1uF', C0603, 'C15849', 'CL10A105KB8NNNC', {'1': 'AMI', '2': 'GND'}, block=B)
 # antenna front end (AN738 5.2)
-part('J3', 'Conn_1', 'ANT wire', JR + 'Antenna_Wire_Solder_D1.0', '', '', {'1': 'ANT'}, block='ant', nobom=True)   # wire soldered in by hand
+part('J3', 'Conn_1', 'ANT wire', JR + 'Antenna_Wire_Solder_D2.0', '', '', {'1': 'ANT'}, block='ant', nobom=True)   # wire soldered in by hand
 part('ANT1', 'Conn_1', 'WHIP M3', JR + 'Antenna_Telescopic_M3', '', '', {'1': 'ANT'}, block='ant', hand=True, nobom=True)
 part('D4', 'D', 'ESD 0.5pF', 'Diode_SMD:D_SOD-882', 'C126839', 'SP3021-01ETG', {'1': 'ANT', '2': 'GND'}, block='ant', dnp=True)   # upgrade: whip ESD
 part('C9', 'C', '1nF', C0603, 'C1588', 'CL10B102KB8NNNC', {'1': 'ANT', '2': 'FMI'}, block='ant')   # Basic X7R; C0G C163508 is Extended

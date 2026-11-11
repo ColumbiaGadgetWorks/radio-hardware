@@ -11,7 +11,8 @@ def usable(b, margin):
     key = (id(b), round(margin, 3))
     if key not in _cache:
         o = pcbnew.SHAPE_POLY_SET()
-        b.GetBoardPolygonOutlines(o)
+        try: b.GetBoardPolygonOutlines(o, False)   # KiCad 10 added a required arg
+        except TypeError: b.GetBoardPolygonOutlines(o)
         polys = []
         for i in range(o.OutlineCount()):
             ring = lambda ch: [(pcbnew.ToMM(ch.CPoint(k).x), pcbnew.ToMM(ch.CPoint(k).y)) for k in range(ch.PointCount())]

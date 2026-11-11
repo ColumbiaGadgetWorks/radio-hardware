@@ -6,6 +6,10 @@ Freerouting leaves unrouted.
 """
 import heapq, math, sys
 import pcbnew
+
+def via_w(v):   # KiCad 9+ wants a layer for via size (and pops a debug alert without one); KiCad 7 takes none
+    try: return v.GetWidth(pcbnew.F_Cu)
+    except TypeError: return v.GetWidth()
 from fix_islands import dseg
 from shapely.geometry import Point as _Pt
 import edges
@@ -21,7 +25,7 @@ def obstacles(b, layer, skip_net):
         if t.GetNetCode() == skip_net:
             continue
         if t.GetClass() == 'PCB_VIA':
-            p = t.GetPosition(); out.append(('c', (mm(p.x), mm(p.y), mm(p.x), mm(p.y), mm(t.GetWidth()) / 2)))
+            p = t.GetPosition(); out.append(('c', (mm(p.x), mm(p.y), mm(p.x), mm(p.y), mm(via_w(t)) / 2)))
         elif t.GetLayer() == layer:
             a, e = t.GetStart(), t.GetEnd(); out.append(('c', (mm(a.x), mm(a.y), mm(e.x), mm(e.y), mm(t.GetWidth()) / 2)))
     for fp in b.GetFootprints():
@@ -237,7 +241,7 @@ def net_islands(b, net):
         if t.GetNetCode() != net:
             continue
         if t.GetClass() == 'PCB_VIA':
-            p = t.GetPosition(); items.append(((0, 1), _Pt(mm(p.x), mm(p.y)).buffer(mm(t.GetWidth()) / 2)))
+            p = t.GetPosition(); items.append(((0, 1), _Pt(mm(p.x), mm(p.y)).buffer(mm(via_w(t)) / 2)))
         else:
             a, e = t.GetStart(), t.GetEnd()
             g = LineString([(mm(a.x), mm(a.y)), (mm(e.x), mm(e.y))]).buffer(mm(t.GetWidth()) / 2)
@@ -300,5 +304,5 @@ if __name__ == '__main__':
     print('GND bridges:', island_bridge.bridge(b))
     pcbnew.SaveBoard(route.BOARD, b)
     rpt = os.path.join(route.WORK, 'drc.rpt')
-    pcbnew.WriteDRCReport(b, rpt, pcbnew.EDA_UNITS_MILLIMETRES, True)
+    __import__('drc').report(b, rpt)
     print(route.summary(rpt))

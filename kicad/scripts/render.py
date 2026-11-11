@@ -55,7 +55,8 @@ def render(face, width=1400):
         X = (x - x0) * sx
         return (w - X if mirror else X), (y - y0) * sx
     outl = pcbnew.SHAPE_POLY_SET()
-    b.GetBoardPolygonOutlines(outl)
+    try: b.GetBoardPolygonOutlines(outl, False)   # KiCad 10 added a required arg
+    except TypeError: b.GetBoardPolygonOutlines(outl)
     mask_im = Image.new('L', (w, h), 0); md = ImageDraw.Draw(mask_im)
     for i in range(outl.OutlineCount()):
         ring = outl.Outline(i)

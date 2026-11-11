@@ -68,9 +68,11 @@ def inside(bb, face, tht=False):
     return True
 
 
-def legalize(board, placed, mech, PLACE, keepouts=()):
+def legalize(board, placed, mech, PLACE, keepouts=(), trusted=()):
     """keepouts: (x0, y0, x1, y1, face) boxes in mm, y up, kept free of
-    parts (silkscreen labels drawn later)."""
+    parts (silkscreen labels drawn later). trusted: refs whose PLACE pose comes
+    from a shipped board (place_seed.json); they stay put unless they hit a
+    fixed part, hole, logo or keepout."""
     blocked = {'F': [], 'B': []}
     for x0, y0, x1, y1, f in keepouts:
         blocked[f].append((pcbnew.FromMM(CX + x0), pcbnew.FromMM(CY - y1), pcbnew.FromMM(CX + x1), pcbnew.FromMM(CY - y0)))
@@ -96,6 +98,23 @@ def legalize(board, placed, mech, PLACE, keepouts=()):
             block(fp, 'FB' if is_tht(fp) else face)
         else:
             auto.append((ref, fp))
+    kept = []
+    for ref, fp in auto:
+        if ref not in trusted:
+            continue
+        x0, y0, rot, side = PLACE[ref][:4]
+        fp.SetPosition(P(x0, y0)); fp.SetOrientationDegrees(rot)
+        bb = bbox(fp)
+        e = MARGIN   # shipped parts only need courtyards not to overlap (the DRC rule), not the extra margin
+        sb = (bb[0] + e, bb[1] + e, bb[2] - e, bb[3] - e)
+        faces = 'FB' if is_tht(fp) else side
+        if not any(overlap(sb, o) for f in faces for o in blocked[f]):
+            kept.append((ref, bb, faces))
+    for ref, bb, faces in kept:
+        for f in faces:
+            blocked[f].append(bb)
+    done = {r for r, _, _ in kept}
+    auto = [rf for rf in auto if rf[0] not in done]
     # biggest parts first
     auto.sort(key=lambda rf: -((lambda b: (b[2] - b[0]) * (b[3] - b[1]))(bbox(rf[1]))))
     failed = []

@@ -2,6 +2,10 @@
 islands between parts join the solid ground on the outside face."""
 import math
 import pcbnew
+
+def via_w(v):   # KiCad 9+ wants a layer for via size (and pops a debug alert without one); KiCad 7 takes none
+    try: return v.GetWidth(pcbnew.F_Cu)
+    except TypeError: return v.GetWidth()
 from gen_pcb import CX, CY, P, GEOM
 from shapely.geometry import Point
 import edges
@@ -23,7 +27,7 @@ def add_stitching(board, pitch=3.0, rmax=None, locked=False):
     for t in board.GetTracks():
         if t.GetClass() == 'PCB_VIA':
             p = t.GetPosition()
-            obst.append(('c', pcbnew.ToMM(p.x), pcbnew.ToMM(p.y), pcbnew.ToMM(t.GetWidth()) / 2))
+            obst.append(('c', pcbnew.ToMM(p.x), pcbnew.ToMM(p.y), pcbnew.ToMM(via_w(t)) / 2))
         else:
             a, b = t.GetStart(), t.GetEnd()
             obst.append(('s', pcbnew.ToMM(a.x), pcbnew.ToMM(a.y), pcbnew.ToMM(b.x), pcbnew.ToMM(b.y), pcbnew.ToMM(t.GetWidth()) / 2))

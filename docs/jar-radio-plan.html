@@ -224,7 +224,7 @@ details.hist > summary { cursor: pointer; font-family: var(--display); font-size
       <ul>
         <li><b>Antenna</b> Whip (ANT1) or wire (J3) → 1 nF C9 → Si4825 FMI, with 56 nH L1 to ground (AN738 whip network). The 0.5 pF ESD diode spot D4 is unpopulated.</li>
         <li><b>Tuner</b> Si4825-A10, 32.768 kHz crystal, band FM3 set by a 498 k ladder (330k + 100k + 68k). The RC reset is R1/C5; the brown-out reset spot U5 is unpopulated.</li>
-        <li><b>Station</b> A resistor divider from TUNE1: R2 82k / R3 11k / R4 100 Ω, all 1% fee-free parts. Ratio 11.1/93.1 → 89.504 MHz on the assumed f ≈ 87 + 21 × ratio law. Worst-case 1% error is ±44 kHz (typically ±18 kHz), inside the ±50 kHz channel window. The first boards confirm the law; the RV2 pads take a calibration trimmer if needed.</li>
+        <li><b>Station</b> A resistor divider from TUNE1: R2 51k / R3 10k / R4 100 Ω, all 1% fee-free Basic parts, ratio 10.1/61.1 = 0.165. Rev B boards (82k/11k, ratio 0.119, from an assumed f ≈ 87 + 21 × ratio law) got static; a trimmer on RV2 showed KOPN plays for ratios 0.150–0.176, so 0.165 sits mid-window. Rev B fix: about 180–200k across RV2 pins 1–2 (TUNE1–TUNE2). The RV2 pads still take a calibration trimmer.</li>
         <li><b>Volume</b> AOUT → 1 µF → R22 4.7k → 10k audio pot (keeps the Si4825 load ≥ 12.9k) → 100 nF → NS8002 (R7 47k, R8 680k: gain 29, BTL) → speaker.</li>
       </ul>
     </div>
@@ -276,10 +276,10 @@ details.hist > summary { cursor: pointer; font-family: var(--display); font-size
 <tr><td class="mono">R13</td><td>2.4k</td><td class="mono">0603WAF2401T5E</td><td class="mono">C22940</td><td><span class="tag b">Basic</span></td><td class="num">1272705</td><td class="num">0.003</td><td class="num">0.003</td></tr>
 <tr><td class="mono">R14</td><td>680R</td><td class="mono">0603WAF6800T5E</td><td class="mono">C23228</td><td><span class="tag b">Basic</span></td><td class="num">2203364</td><td class="num">0.002</td><td class="num">0.002</td></tr>
 <tr><td class="mono">R15,R18</td><td>1k</td><td class="mono">0603WAF1001T5E</td><td class="mono">C21190</td><td><span class="tag b">Basic</span></td><td class="num">24277749</td><td class="num">0.004</td><td class="num">0.004</td></tr>
-<tr><td class="mono">R2</td><td>82k</td><td class="mono">0603WAF8202T5E</td><td class="mono">C23254</td><td><span class="tag b">Basic</span></td><td class="num">1233819</td><td class="num">0.003</td><td class="num">0.003</td></tr>
+<tr><td class="mono">R2</td><td>51k</td><td class="mono">0603WAF5102T5E</td><td class="mono">C23196</td><td><span class="tag b">Basic</span></td><td class="num">—</td><td class="num">0.003</td><td class="num">0.003</td></tr>
 <tr><td class="mono">R22</td><td>4.7k</td><td class="mono">0603WAF4701T5E</td><td class="mono">C23162</td><td><span class="tag b">Basic</span></td><td class="num">19500720</td><td class="num">0.003</td><td class="num">0.003</td></tr>
 <tr><td class="mono">R23,R24,F1</td><td>0R (pin1 = -)</td><td class="mono">1206W4F0000T5E</td><td class="mono">C17888</td><td><span class="tag b">Basic</span></td><td class="num">2258418</td><td class="num">0.025</td><td class="num">0.025</td></tr>
-<tr><td class="mono">R3</td><td>11k</td><td class="mono">0603WAF1102T5E</td><td class="mono">C25950</td><td><span class="tag h">Preferred</span></td><td class="num">288633</td><td class="num">0.002</td><td class="num">0.002</td></tr>
+<tr><td class="mono">R3</td><td>10k</td><td class="mono">0603WAF1002T5E</td><td class="mono">C25804</td><td><span class="tag b">Basic</span></td><td class="num">—</td><td class="num">0.002</td><td class="num">0.002</td></tr>
 <tr><td class="mono">R4</td><td>100R</td><td class="mono">0603WAF1000T5E</td><td class="mono">C22775</td><td><span class="tag b">Basic</span></td><td class="num">11248464</td><td class="num">0.003</td><td class="num">0.003</td></tr>
 <tr><td class="mono">R5</td><td>330k</td><td class="mono">0603WAF3303T5E</td><td class="mono">C23137</td><td><span class="tag b">Basic</span></td><td class="num">599621</td><td class="num">0.001</td><td class="num">0.001</td></tr>
 <tr><td class="mono">R6</td><td>68k</td><td class="mono">0603WAF6802T5E</td><td class="mono">C23231</td><td><span class="tag b">Basic</span></td><td class="num">687888</td><td class="num">0.002</td><td class="num">0.002</td></tr>
@@ -365,7 +365,7 @@ details.hist > summary { cursor: pointer; font-family: var(--display); font-size
       <tr><td>Speaker</td><td>Dragonstate HDK-4008BB-2.</td></tr>
       <tr><td>Antenna</td><td>75 cm of 24 AWG stranded wire in the ANT hole, spiralled inside the jar. The M3 whip mount is kept for later.</td></tr>
       <tr><td>USB-C</td><td>ShouHan TYPE-C 6P LTH6.8 108 (C30167335), vertical.</td></tr>
-      <tr><td>Cost-down</td><td>Station resistors 82k/11k 1% (fee-free) instead of 0.1%; C7/C21 22 µF 0603 and C18 10 µF 0603 instead of 22 µF 0805.</td></tr>
+      <tr><td>Cost-down</td><td>Station resistors 51k/10k 1% (fee-free) instead of 0.1%; C7/C21 22 µF 0603 and C18 10 µF 0603 instead of 22 µF 0805.</td></tr>
       <tr><td>Quantities</td><td>30 now (no prototype run), 30 later. All 63 speakers bought now.</td></tr><tr><td>Venting</td><td>Not sealed and no extra holes. The plug cutout leaves a small gap, which vents the jar (pressure, and a failing cell). The jar is the speaker's back box.</td></tr>
     </tbody>
   </table></div>

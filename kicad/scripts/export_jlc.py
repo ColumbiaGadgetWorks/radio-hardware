@@ -1,7 +1,7 @@
 """Writes the JLCPCB order files into kicad/jlcpcb/:
 gerbers + drill zip, BOM.csv and CPL.csv (all on the top face), plus PNG
 renders of both faces into docs/img/."""
-import csv, os, subprocess, zipfile, shutil, glob
+import csv, os, subprocess, sys, zipfile, shutil, glob
 import circuit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -11,7 +11,15 @@ OUT = os.path.join(PROJ, 'jlcpcb')
 LAYERS = 'F.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts'
 
 
+def _cli():
+    # on PATH on Linux; on Windows it sits next to KiCad's python.exe
+    here = os.path.join(os.path.dirname(sys.executable), 'kicad-cli' + ('.exe' if os.name == 'nt' else ''))
+    return shutil.which('kicad-cli') or (here if os.path.exists(here) else 'kicad-cli')
+
+
 def run(*a):
+    if a[0] == 'kicad-cli':
+        a = (_cli(),) + a[1:]
     r = subprocess.run(a, capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(r.stdout + r.stderr)

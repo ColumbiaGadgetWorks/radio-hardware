@@ -4,6 +4,10 @@ layer) so it reaches the solid pour on the other side."""
 import math, re
 import pcbnew
 
+def via_w(v):   # KiCad 9+ wants a layer for via size (and pops a debug alert without one); KiCad 7 takes none
+    try: return v.GetWidth(pcbnew.F_Cu)
+    except TypeError: return v.GetWidth()
+
 mm = pcbnew.ToMM
 W, CLR, VIA, DRILL = 0.3, 0.22, 0.6, 0.3
 
@@ -14,7 +18,7 @@ def capsules(b, layer, skip_net=None):
         if skip_net is not None and t.GetNetCode() == skip_net:
             continue
         if t.GetClass() == 'PCB_VIA':
-            p = t.GetPosition(); obs.append((mm(p.x), mm(p.y), mm(p.x), mm(p.y), mm(t.GetWidth()) / 2))
+            p = t.GetPosition(); obs.append((mm(p.x), mm(p.y), mm(p.x), mm(p.y), mm(via_w(t)) / 2))
         elif t.GetLayer() == layer:
             a, e = t.GetStart(), t.GetEnd(); obs.append((mm(a.x), mm(a.y), mm(e.x), mm(e.y), mm(t.GetWidth()) / 2))
     for fp in b.GetFootprints():

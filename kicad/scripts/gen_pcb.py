@@ -7,13 +7,15 @@ Y UP as seen from the top (outside) face. All parts sit on the top face; the
 inside face carries only the battery outline.
 Board geometry is from the measured wide-mouth jar (see GEOM).
 """
-import math, os
+import math, os, sys
 import pcbnew
 import circuit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.abspath(os.path.join(HERE, '..'))
-STD = '/usr/share/kicad/footprints'
+STD = os.environ.get('KICAD_FOOTPRINTS') or next((d for d in (
+    '/usr/share/kicad/footprints',
+    os.path.join(os.path.dirname(sys.executable), '..', 'share', 'kicad', 'footprints')) if os.path.isdir(d)), '')
 OWN = os.path.join(PROJ, 'lib', 'jar-radio.pretty')
 
 GEOM = dict(
@@ -38,7 +40,7 @@ JMP = (-8.0, 27.6)            # battery polarity jumpers above the socket: R25 R
 # place.py moves them to the nearest spot where their courtyard is clear.
 PLACE = {
     # --- fixed: controls, connectors, hand-wired pads
-    'RV1': (25.0, 5.0, 0, 'F', 'fix'), 'J1': (-27.0, 10.0, 90, 'F', 'fix'), 'ANT1': (22.5, 24.0, 0, 'F', 'fix'),
+    'RV1': (25.0, 5.0, 0, 'F', 'fix'), 'J1': (-27.0, 10.0, 90, 'F', 'fix'), 'ANT1': (22.5, 23.1, 0, 'F', 'fix'),
     'J2': (SOCK[0], SOCK[1], 270, 'F', 'fix'), 'J3': (7.0, 31.0, 0, 'F', 'fix'), 'J4': (SPK[0], SPK[1], 90, 'F', 'fix'),
     # --- battery protection, between the socket and the whip mount
     # polarity crossover beside the socket: R23/R24 fitted, R25/R26 the swapped pair
@@ -52,7 +54,7 @@ PLACE = {
     'R2': (22.0, 13.5, 90, 'F'), 'R3': (23.5, 13.5, 90, 'F'), 'R4': (25.0, 13.5, 90, 'F'),
     'C6': (26.5, 13.5, 90, 'F'), 'C7': (28.0, 13.5, 90, 'F'), 'C21': (29.5, 14.0, 90, 'F'),
     'R5': (11.0, 18.0, 90, 'F'), 'R17': (9.5, 18.0, 90, 'F'), 'R6': (12.5, 18.0, 90, 'F'), 'C8': (14.0, 9.5, 0, 'F'),
-    'RV2': (27.0, 19.0, 90, 'F'),
+    'RV2': (26.5, 17.38, -90, 'F', 'fix'),   # rev C: 0.75 mm down from rev B so the whip can sit 0.64 mm further in
     # --- antenna network next to the whip mount
     'C9': (16.0, 24.0, 0, 'F'), 'L1': (13.5, 24.0, 0, 'F'), 'D4': (18.5, 24.0, 0, 'F'),
     # --- audio, right side between the knob and the speaker pads
@@ -68,6 +70,21 @@ PLACE = {
     'R15': (-12.5, 23.5, 0, 'F'), 'C16': (-17.0, 17.0, 90, 'F'),
     'Q1': (-15.0, 7.0, 0, 'F'), 'R16': (-18.5, 7.0, 90, 'F'), 'D1': (-11.0, 5.5, 0, 'F'), 'C17': (-7.0, 5.0, 90, 'F'),
 }
+
+# Start from the placement that shipped as rev B (place_seed.json, exported from that board) so a
+# small change only nudges the parts it collides with. Without it the greedy legalizer re-shuffles
+# dozens of parts. 'fix' parts keep their PLACE pose (e.g. the moved whip). Delete the file to place
+# from the PLACE hints alone.
+_seed = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'place_seed.json')
+SEEDED = set()
+SEED_SKIP = {'J3'}   # footprint changed since the seed board (bigger wire hole): place it afresh
+if os.path.exists(_seed):
+    import json
+    for _r, _v in json.load(open(_seed)).items():
+        if _r in PLACE and not (len(PLACE[_r]) > 4 and PLACE[_r][4] == 'fix'):
+            PLACE[_r] = tuple(_v) + tuple(PLACE[_r][4:])
+            if _r not in SEED_SKIP:
+                SEEDED.add(_r)
 
 # mechanical items: (footprint, x, y_up, rot, side)
 MECH = [
@@ -105,6 +122,16 @@ def circle_poly(r, n=96):
     return [(r * math.cos(2 * math.pi * i / n), r * math.sin(2 * math.pi * i / n)) for i in range(n)]
 
 
+def set_hidden_field(fp, name, value):
+    """KiCad 8+ fields are new visible text on silkscreen unless hidden; KiCad 7 properties are never shown."""
+    if not hasattr(fp, 'SetField'):
+        return fp.SetProperty(name, value)
+    fp.SetField(name, value)
+    f = fp.GetField(name)
+    if f:
+        f.SetVisible(False)
+
+
 def add_zone(board, net, layer, outer, hole=None, rule=False, prio=0):
     z = pcbnew.ZONE(board)
     z.SetLayer(layer)
@@ -122,7 +149,7 @@ def add_zone(board, net, layer, outer, hole=None, rule=False, prio=0):
         z.SetDoNotAllowFootprints(True)
         z.SetDoNotAllowPads(False)
         z.SetDoNotAllowVias(False)
-        z.SetDoNotAllowCopperPour(False)
+        (z.SetDoNotAllowZoneFills if hasattr(z, 'SetDoNotAllowZoneFills') else z.SetDoNotAllowCopperPour)(False)   # KiCad 9+ | 7
         ls = pcbnew.LSET(); ls.AddLayer(pcbnew.F_Cu); ls.AddLayer(pcbnew.B_Cu)
         z.SetLayerSet(ls)
     else:
@@ -161,13 +188,15 @@ def build(sch_parts, out_path):
     ds.m_CopperEdgeClearance = pcbnew.FromMM(0.2)
     ds.m_HoleClearance = pcbnew.FromMM(0.2)
     ds.m_SolderMaskExpansion = pcbnew.FromMM(0.05)
-    nc = ds.m_NetSettings.m_DefaultNetClass
+    ns = ds.m_NetSettings
+    nc = ns.m_DefaultNetClass if hasattr(ns, 'm_DefaultNetClass') else ns.GetDefaultNetclass()   # KiCad 7 | 8+
     nc.SetTrackWidth(pcbnew.FromMM(0.25)); nc.SetClearance(pcbnew.FromMM(0.2))
     nc.SetViaDiameter(pcbnew.FromMM(0.6)); nc.SetViaDrill(pcbnew.FromMM(0.3))
     pw = pcbnew.NETCLASS('Power')
     pw.SetTrackWidth(pcbnew.FromMM(0.5)); pw.SetClearance(pcbnew.FromMM(0.2))
     pw.SetViaDiameter(pcbnew.FromMM(0.8)); pw.SetViaDrill(pcbnew.FromMM(0.4))
-    ds.m_NetSettings.m_NetClasses['Power'] = pw
+    if hasattr(ns, 'm_NetClasses'): ns.m_NetClasses['Power'] = pw
+    else: ns.SetNetclass('Power', pw)
     # nets
     names = sorted({n for p in circuit.P for n in p['nets'].values()})
     nets = {}
@@ -183,6 +212,20 @@ def build(sch_parts, out_path):
     c.SetLayer(pcbnew.Edge_Cuts); c.SetWidth(pcbnew.FromMM(0.1))
     board.Add(c)
 
+    # cable slot: 14 x 7.5 mm stadium below the CGW logo, along the LiPo end,
+    # so a power bank inside the jar can feed a USB-C plug up to J2
+    sc, sl, sw, sa = (-26.5, -17.75), 14.0, 7.5, math.radians(125)
+    ux, uy, h, r = math.cos(sa), math.sin(sa), (sl - sw) / 2, sw / 2
+    nx, ny = -uy, ux
+    pt = lambda a, b: P(sc[0] + a * ux + b * nx, sc[1] + a * uy + b * ny)
+    for a, b in ((h, r), (-h, -r)):
+        ln = pcbnew.PCB_SHAPE(board); ln.SetShape(pcbnew.SHAPE_T_SEGMENT)
+        ln.SetStart(pt(a, b)); ln.SetEnd(pt(-a, b))
+        ar = pcbnew.PCB_SHAPE(board); ar.SetShape(pcbnew.SHAPE_T_ARC)
+        ar.SetArcGeometry(pt(-a, b), pt(-a - (r if a > 0 else -r), 0), pt(-a, -b))
+        for sh in (ln, ar):
+            sh.SetLayer(pcbnew.Edge_Cuts); sh.SetWidth(pcbnew.FromMM(0.1)); board.Add(sh)
+
     uuid = {p['ref']: p['uuid'] for p in sch_parts}
     placed = {}
     for p in circuit.P:
@@ -193,8 +236,8 @@ def build(sch_parts, out_path):
         fp.SetReference(ref)
         fp.SetValue(p['value'])
         fp.SetPath(pcbnew.KIID_PATH('/' + uuid[ref]))
-        fp.SetProperty('LCSC', p['lcsc'])
-        fp.SetProperty('MPN', p['mpn'])
+        for k in ('LCSC', 'MPN'):
+            set_hidden_field(fp, k, p[k.lower()])
         if p.get('dnp') or p.get('hand'):
             fp.SetAttributes(fp.GetAttributes() | pcbnew.FP_EXCLUDE_FROM_POS_FILES)
         x, y, rot, side = PLACE[ref][:4]
@@ -217,7 +260,7 @@ def build(sch_parts, out_path):
         put(board, fp, x, y, rot, side)
 
     import place
-    place.legalize(board, placed, mech_fps, PLACE, keepouts=[(JMP[0] - 7.8, JMP[1] + 2.2, JMP[0] + 4.0, JMP[1] + 4.9, 'F')])   # jumper labels
+    place.legalize(board, placed, mech_fps, PLACE, keepouts=[(JMP[0] - 7.8, JMP[1] + 2.2, JMP[0] + 4.0, JMP[1] + 4.9, 'F')], trusted=SEEDED)   # jumper labels
 
     # copper: GND pour on both faces, clamp ring kept free of tracks
     R = GEOM['od'] / 2 - 0.4
@@ -279,7 +322,7 @@ def build(sch_parts, out_path):
     text(board, '40mm SPEAKER', SPK[0], SPK[1] - 15.5, 1.0, pcbnew.F_SilkS)
     text(board, 'CUTOUT \u00d816.8mm', SPK[0], SPK[1] - 10.3, 0.8, pcbnew.F_SilkS)
     # inside face, below the speaker cup (the battery covers the middle)
-    text(board, 'KOPN 89.5 JAR RADIO rev B', 0.0, -25.0, 0.8, pcbnew.B_SilkS)
+    text(board, 'KOPN 89.5 JAR RADIO rev C', 0.0, -25.0, 0.8, pcbnew.B_SilkS)
     text(board, 'COLUMBIA, MO', 0.0, -26.8, 0.8, pcbnew.B_SilkS)
     text(board, 'CERN-OHL-S-2.0', 0.0, -28.6, 0.8, pcbnew.B_SilkS)
     text(board, 'after The Public Radio', 0.0, -30.4, 0.8, pcbnew.B_SilkS)

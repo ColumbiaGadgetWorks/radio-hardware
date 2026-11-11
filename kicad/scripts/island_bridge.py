@@ -84,5 +84,5 @@ if __name__ == '__main__':
     print('GND bridges:', bridge(b))
     pcbnew.SaveBoard(route.BOARD, b)
     rpt = os.path.join(route.WORK, 'drc.rpt')
-    pcbnew.WriteDRCReport(b, rpt, pcbnew.EDA_UNITS_MILLIMETRES, True)
+    __import__('drc').report(b, rpt)
     print(route.summary(rpt))

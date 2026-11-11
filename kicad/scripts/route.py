@@ -4,8 +4,12 @@ writes a DRC report.
 Needs Java and freerouting.jar (v1.9). Set FREEROUTING_JAR to its path.
 Power nets are given 0.5 mm tracks in the DSN before routing.
 """
-import os, re, subprocess
+import os, re, shutil, subprocess, sys
 import pcbnew
+
+def via_w(v):   # KiCad 9+ wants a layer for via size (and pops a debug alert without one); KiCad 7 takes none
+    try: return v.GetWidth(pcbnew.F_Cu)
+    except TypeError: return v.GetWidth()
 import gen_pcb
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +28,7 @@ def main(passes=40, finish=False):
     if not finish:
         # pre-place locked GND vias on a grid in the free space, so every
         # patch of pour that the routing leaves behind already has a via
-        subprocess.run(['python3', '-c', f"""
+        subprocess.run([sys.executable, '-c', f"""
 import sys; sys.path.insert(0, {HERE!r})
 import pcbnew, stitch, fanout
 b = pcbnew.LoadBoard({BOARD!r})
@@ -32,7 +36,7 @@ print('GND fan-out vias:', fanout.fanout(b))
 print('pre-route stitching vias:', stitch.add_stitching(b, pitch=2.5, locked=True))
 pcbnew.SaveBoard({BOARD!r}, b)
 """], check=True)
-    subprocess.run(['python3', '-c', f"""
+    subprocess.run([sys.executable, '-c', f"""
 import pcbnew
 b = pcbnew.LoadBoard({BOARD!r})
 for z in list(b.Zones()):
@@ -54,7 +58,7 @@ assert pcbnew.ExportSpecctraDSN(b, {dsn!r})
                             '    (padstack "Via[0-1]_800:400_um"\n      (shape (circle F.Cu 800))\n      (shape (circle B.Cu 800))\n      (attach off)\n    )\n    (padstack "Via[0-1]_600:300_um"', 1)
     text = re.sub(r'\(clearance 200(\.1)?\)', '(clearance 220)', text)
     open(dsn, 'w').write(text)
-    cmd = ['xvfb-run', '-a', 'java', '-jar', JAR, '-de', dsn, '-do', ses, '-mp', str(passes), '-mt', '1']
+    cmd = (['xvfb-run', '-a'] if shutil.which('xvfb-run') else []) + ['java', '-jar', JAR, '-de', dsn, '-do', ses, '-mp', str(passes), '-mt', '1']
     print(' '.join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=3000)
     tail = [l for l in (r.stdout + r.stderr).splitlines() if 'INFO' in l and ('unrouted' in l.lower() or 'completed' in l.lower() or 'incomplete' in l.lower())][-8:]
@@ -82,7 +86,7 @@ assert pcbnew.ExportSpecctraDSN(b, {dsn!r})
     import island_bridge
     print('GND bridges:', island_bridge.bridge(board))
     pcbnew.SaveBoard(BOARD, board)
-    pcbnew.WriteDRCReport(board, rpt, pcbnew.EDA_UNITS_MILLIMETRES, True)
+    __import__('drc').report(board, rpt)
     # anything Freerouting left: two-pad connections get the small maze router
     import route_one, island_bridge
     txt = open(rpt).read()
@@ -99,7 +103,7 @@ assert pcbnew.ExportSpecctraDSN(b, {dsn!r})
     if left:
         print('GND bridges:', island_bridge.bridge(board))
         pcbnew.SaveBoard(BOARD, board)
-        pcbnew.WriteDRCReport(board, rpt, pcbnew.EDA_UNITS_MILLIMETRES, True)
+        __import__('drc').report(board, rpt)
     n = prune_dangling(board, rpt)
     if n:
         print('dangling stubs removed:', n)
@@ -120,7 +124,7 @@ def prune_dangling(board, rpt=None):
             k = t.GetNetCode()
             if t.GetClass() == 'PCB_VIA':
                 p = t.GetPosition()
-                g = Point(pcbnew.ToMM(p.x), pcbnew.ToMM(p.y)).buffer(pcbnew.ToMM(t.GetWidth()) / 2)
+                g = Point(pcbnew.ToMM(p.x), pcbnew.ToMM(p.y)).buffer(pcbnew.ToMM(via_w(t)) / 2)
                 geo.setdefault((k, 'F.Cu'), []).append((t, g)); geo.setdefault((k, 'B.Cu'), []).append((t, g))
             else:
                 a, e = t.GetStart(), t.GetEnd()
